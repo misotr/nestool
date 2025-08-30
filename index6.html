@@ -30,7 +30,7 @@
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
         <div>
           <h1>Nostr Event Search Viewer</h1>
-          <p class="desc">index5 のログイン方式で公開鍵を取得し、index.html のイベント検索 UI を利用します。</p>
+          <p class="desc">イベント検索 UI を提供します。検索対象ユーザの選択を容易化するために nostr-login を利用して公開鍵を取得します。</p>
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
           <!-- Host element for app.js to hook login state (may be unused by overlay) -->
@@ -46,9 +46,9 @@
 
     <main>
       <form id="search-form">
-        <div class="field">
-          <label for="author">投稿者（npub または 64 桁 hex／任意）</label>
-          <input id="author" name="author" type="text" placeholder="空欄可。npub1... または 64 桁 hex" autocomplete="off" />
+        <div class="field small">
+          <label for="kind">kind（整数）</label>
+          <input id="kind" name="kind" type="number" inputmode="numeric" min="0" step="1" required placeholder="1" />
         </div>
         <div class="actions" style="margin-top:-4px; margin-bottom:8px; gap:8px; flex-wrap: wrap;">
           <button id="load-followings" type="button">ログインユーザのフォロー取得</button>
@@ -56,9 +56,9 @@
           <button id="set-author-from-followings" type="button">投稿者 = 選択ユーザ</button>
           <span class="mono" id="followings-status" style="color:#9aa7b2;"></span>
         </div>
-        <div class="field small">
-          <label for="kind">kind（整数）</label>
-          <input id="kind" name="kind" type="number" inputmode="numeric" min="0" step="1" required placeholder="1" />
+        <div class="field">
+          <label for="author">投稿者（npub または 64 桁 hex／任意）</label>
+          <input id="author" name="author" type="text" placeholder="空欄可。npub1... または 64 桁 hex" autocomplete="off" />
         </div>
         <div class="field small">
           <label for="tag-name">タグ名（任意・1 文字、例: g）</label>
