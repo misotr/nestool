@@ -222,6 +222,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const tagValueEl = $('#tag-value');
   const loginStatus = $('#login-status');
   const nostrLoginEl = document.getElementById('nostr-login') || document.querySelector('nostr-login');
+  const mainLoginBtn = document.getElementById('loginBtn');
+  const mainLogoutBtn = document.getElementById('logoutBtn');
+  let isLogoutPropagation = false; // re-entrancy guard to avoid logout ping-pong
   const loadFollowingsBtn = $('#load-followings');
   const followingsList = $('#followings-list');
   const followingsStatus = $('#followings-status');
@@ -244,13 +247,32 @@ window.addEventListener('DOMContentLoaded', () => {
   function clearLogin() { try { localStorage.removeItem(LOGIN_KEY); } catch {} }
 
   let loginState = loadLogin();
+  function updateHeaderButtons() {
+    const loggedIn = !!(loginState && loginState.npub);
+    if (mainLoginBtn) mainLoginBtn.style.display = loggedIn ? 'none' : '';
+    if (mainLogoutBtn) mainLogoutBtn.style.display = loggedIn ? '' : 'none';
+  }
   function updateLoginStatus() {
     if (!loginStatus) return;
     if (loginState && loginState.npub) {
-      loginStatus.textContent = `ログイン中: ${loginState.npub.slice(0,12)}…`;
+      let label = '';
+      try {
+        if (loginState.pkHex) {
+          const prof = loadProfileCache(loginState.pkHex);
+          const display = prof && typeof prof.display === 'string' ? prof.display.trim() : '';
+          const nick = prof && typeof prof.nick === 'string' ? prof.nick.trim() : '';
+          if (display || nick) {
+            label = display || nick;
+            if (nick) label += `(@${nick})`;
+          }
+        }
+      } catch {}
+      if (!label) label = `${loginState.npub.slice(0,12)}…`;
+      loginStatus.textContent = `ログイン中: ${label}`;
     } else {
       loginStatus.textContent = '未ログイン';
     }
+    updateHeaderButtons();
   }
   updateLoginStatus();
 
@@ -261,90 +283,90 @@ window.addEventListener('DOMContentLoaded', () => {
     saveLogin(loginState);
     updateLoginStatus();
     if (typeof updateAuthControls === 'function') updateAuthControls();
+    // Try to fetch profile to show display name (@handle)
+    try {
+      const relays = parseRelays(relaysEl.value);
+      const prof = await fetchProfileFor(pkHex, relays);
+      if (prof) saveProfileCache(pkHex, prof);
+      updateLoginStatus();
+    } catch {}
   }
   
-  // nostr-login integration
-  function setupNostrLogin() {
-    const nostrLoginEl = document.querySelector('nostr-login');
-    if (!nostrLoginEl) return;
+  // (removed) Legacy setupNostrLogin — overlay events are handled via document nlAuth/nlLogout
 
-    nostrLoginEl.addEventListener('login', async (e) => {
-      try {
-        const { pubkey } = e.detail;
-        if (!pubkey) throw new Error('公開鍵が取得できませんでした');
-        
-        // 公開鍵をHEX形式に正規化
-        const pkHex = pubkey.startsWith('npub1') 
-          ? bech32.toHex(bech32.fromWords(bech32.decode(pubkey).words))
-          : pubkey.toLowerCase();
-          
-        await setLoginFromHex(pkHex, 'nostr-login');
-        setErrors('');
-      } catch (err) {
-        setErrors(err.message);
-      }
-    });
-
-    nostrLoginEl.addEventListener('logout', () => {
-      loginState = null;
-      clearLogin();
-      updateLoginStatus();
-    });
-  }
-
-  // nostr-login integration
-  async function tryAdoptNostrLogin(detail) {
-    try {
-      let input = undefined;
-      if (detail && typeof detail === 'object') {
-        input = detail.pubkey || detail.publicKey; // 標準化された名前をチェック
-      }
-      if (!input && nostrLoginEl && typeof nostrLoginEl.pubkey === 'string') {
-        input = nostrLoginEl.pubkey;
-      }
-      if (typeof input !== 'string' || input.length === 0) {
-        return; // 何もすることがない
-      }
-      let pkHex = null;
-      // normalize
-      input = input.trim();
-      if (input.startsWith('0x') || input.startsWith('0X')) {
-        input = input.slice(2); // 0x を取り除く
-      }
-      // accept hex (case-insensitive)
-      if (/^[0-9a-fA-F]{64}$/.test(input)) {
-        pkHex = input.toLowerCase();
-      } else if (input.startsWith('npub1')) {
-        try {
-          const { prefix, words } = bech32.decode(input);
-          if (prefix !== 'npub') throw new Error('npub の接頭辞が不正です');
-          const bytes = bech32.fromWords(words);
-          if (bytes.length !== 32) throw new Error('npub の長さが不正です');
-          pkHex = toHex(bytes);
-        } catch (err) {
-          throw new Error('npub のデコードに失敗しました: ' + err.message);
-        }
-      } else {
-        throw new Error('公開鍵は npub もしくは 64 桁 hex で入力してください');
-      }
-      if (pkHex) {
-        await setLoginFromHex(pkHex, 'nostr-login');
-      }
-    } catch (e) {
-      // swallow and show as non-blocking error
-      setErrors(e.message || String(e));
-    }
-  }
+  // (removed) tryAdoptNostrLogin — not needed with overlay-driven document events
+  // Element-driven listeners (component build of nostr-login)
+  // If the page uses the web component version (no overlay events),
+  // adopt login/logout directly from the element without re-dispatching.
   if (nostrLoginEl) {
-    nostrLoginEl.addEventListener('login', (e) => tryAdoptNostrLogin(e.detail));
+    const adopt = (e) => { try { adoptFromOverlayDetail(e && e.detail); } catch {} };
+    nostrLoginEl.addEventListener('login', adopt);
+    // Some builds emit custom names
+    nostrLoginEl.addEventListener('nostr-login', adopt);
+    nostrLoginEl.addEventListener('nostr-login:success', adopt);
     nostrLoginEl.addEventListener('logout', () => { loginState = null; clearLogin(); updateLoginStatus(); });
-    // some implementations dispatch custom names
-    nostrLoginEl.addEventListener('nostr-login', (e) => tryAdoptNostrLogin(e.detail));
-    nostrLoginEl.addEventListener('nostr-login:success', (e) => tryAdoptNostrLogin(e.detail));
-    // attempt to read initial state if already logged
-    setTimeout(() => { tryAdoptNostrLogin(null); }, 0);
-
   }
+
+  // Bridge: Header buttons → nostr-login overlay + app.js state
+  if (mainLoginBtn) mainLoginBtn.addEventListener('click', () => {
+    try { document.dispatchEvent(new CustomEvent('nlLaunch', { detail: 'welcome' })); } catch {}
+  });
+  if (mainLogoutBtn) mainLogoutBtn.addEventListener('click', () => {
+    // Single-source: dispatch nlLogout; handlers will propagate and clear state
+    try { document.dispatchEvent(new CustomEvent('nlLogout', { detail: { source: 'main-ui' } })); } catch {}
+  });
+
+  // Bridge: overlay events (nlAuth/nlLogout) → app.js
+  function normalizeToHex(input) {
+    if (!input || typeof input !== 'string') return null;
+    let s = input.trim();
+    if (s.startsWith('0x') || s.startsWith('0X')) s = s.slice(2);
+    if (s.startsWith('npub1')) {
+      try {
+        const dec = bech32.decode(s);
+        if (dec && dec.prefix === 'npub') s = bech32.toHex(bech32.fromWords(dec.words));
+      } catch { return null; }
+    }
+    if (!/^[0-9a-fA-F]{64}$/.test(s)) return null;
+    return s.toLowerCase();
+  }
+  async function adoptFromOverlayDetail(detail) {
+    let input = undefined;
+    if (detail && typeof detail === 'object') {
+      // Accept multiple possible keys and nested payloads
+      input = detail.pubkey || detail.pubKey || detail.publicKey || detail.npub;
+      if (!input && detail.user && typeof detail.user === 'object') {
+        input = detail.user.pubkey || detail.user.pubKey || detail.user.publicKey || detail.user.npub;
+      }
+      if (!input && detail.profile && typeof detail.profile === 'object') {
+        input = detail.profile.pubkey || detail.profile.pubKey || detail.profile.publicKey || detail.profile.npub;
+      }
+    }
+    if (!input && window.nostr && typeof window.nostr.getPublicKey === 'function') {
+      try { input = await window.nostr.getPublicKey(); } catch {}
+    }
+    const hex = normalizeToHex(typeof input === 'string' ? input : '');
+    if (!hex) return;
+    if (loginState && loginState.pkHex === hex) return; // no change
+    await setLoginFromHex(hex, 'nostr-login');
+  }
+  document.addEventListener('nlAuth', async (e) => {
+    const t = e && e.detail && e.detail.type;
+    if (t && String(t).toLowerCase() === 'logout') {
+      if (isLogoutPropagation) return;
+      isLogoutPropagation = true;
+      loginState = null; clearLogin(); updateLoginStatus();
+      isLogoutPropagation = false;
+      return;
+    }
+    await adoptFromOverlayDetail(e && e.detail);
+  });
+  document.addEventListener('nlLogout', () => {
+    if (isLogoutPropagation) return;
+    isLogoutPropagation = true;
+    loginState = null; clearLogin(); updateLoginStatus();
+    isLogoutPropagation = false;
+  });
 
   // Show explicit auth controls only if the nostr-login element is not available
   let updateAuthControls = null;

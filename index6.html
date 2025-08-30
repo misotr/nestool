@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nostr Login + Event Viewer</title>
+    <meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' https://unpkg.com 'unsafe-eval';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: https:;
+  connect-src 'self' https: wss:;
+  frame-src https:;
+  base-uri 'none';
+  form-action 'self';
+  upgrade-insecure-requests" />
+
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Overlay build (uses unsafe-eval internally). Requires CSP 'unsafe-eval'. -->
+    <script src="https://unpkg.com/nostr-login@latest/dist/unpkg.js"
+            data-theme="ocean"
+            data-start-screen="welcome"
+            data-dark-mode="false"
+            data-methods="connect,extension,readOnly,local"></script>
+    <!-- Minimal shim to provide <nostr-login> element for app.js integration if not present -->
+    <script src="nostr-login-shim.js"></script>
+  </head>
+  <body>
+    <header>
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+        <div>
+          <h1>Nostr Event Search Viewer</h1>
+          <p class="desc">index5 のログイン方式で公開鍵を取得し、index.html のイベント検索 UI を利用します。</p>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+          <!-- Host element for app.js to hook login state (may be unused by overlay) -->
+          <nostr-login id="nostr-login" style="display:none"></nostr-login>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <button id="loginBtn" type="button">Nostr でログイン</button>
+            <button id="logoutBtn" type="button">ログアウト</button>
+          </div>
+          <div id="login-status" class="mono" style="color:#9aa7b2; text-align:right;"></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <form id="search-form">
+        <div class="field">
+          <label for="author">投稿者（npub または 64 桁 hex／任意）</label>
+          <input id="author" name="author" type="text" placeholder="空欄可。npub1... または 64 桁 hex" autocomplete="off" />
+        </div>
+        <div class="actions" style="margin-top:-4px; margin-bottom:8px; gap:8px; flex-wrap: wrap;">
+          <button id="load-followings" type="button">ログインユーザのフォロー取得</button>
+          <div id="followings-list" class="follow-list"></div>
+          <button id="set-author-from-followings" type="button">投稿者 = 選択ユーザ</button>
+          <span class="mono" id="followings-status" style="color:#9aa7b2;"></span>
+        </div>
+        <div class="field small">
+          <label for="kind">kind（整数）</label>
+          <input id="kind" name="kind" type="number" inputmode="numeric" min="0" step="1" required placeholder="1" />
+        </div>
+        <div class="field small">
+          <label for="tag-name">タグ名（任意・1 文字、例: g）</label>
+          <input id="tag-name" name="tag-name" type="text" inputmode="text" maxlength="1" placeholder="g" />
+        </div>
+        <div class="field">
+          <label for="tag-value">タグ値（任意・タグ名とセット）</label>
+          <input id="tag-value" name="tag-value" type="text" placeholder="例: osaka / topic など" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="relays">Relay URL（wss://、複数はカンマ/改行）</label>
+          <textarea id="relays" name="relays" rows="2" required>wss://yabu.me</textarea>
+        </div>
+        <div class="actions">
+          <button id="submit" type="submit">検索</button>
+          <span id="status" role="status" aria-live="polite"></span>
+        </div>
+        <div id="errors" class="errors" aria-live="polite"></div>
+      </form>
+
+      <section id="summary" class="summary"></section>
+      <section id="results" class="results"></section>
+    </main>
+
+    <footer>
+      <small>© 2025 — MIT License</small>
+    </footer>
+
+    <script src="bech32.js"></script>
+    <script src="app.js"></script>
+  </body>
+  </html>
