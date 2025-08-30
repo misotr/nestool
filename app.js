@@ -264,6 +264,35 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   
   // nostr-login integration
+  function setupNostrLogin() {
+    const nostrLoginEl = document.querySelector('nostr-login');
+    if (!nostrLoginEl) return;
+
+    nostrLoginEl.addEventListener('login', async (e) => {
+      try {
+        const { pubkey } = e.detail;
+        if (!pubkey) throw new Error('公開鍵が取得できませんでした');
+        
+        // 公開鍵をHEX形式に正規化
+        const pkHex = pubkey.startsWith('npub1') 
+          ? bech32.toHex(bech32.fromWords(bech32.decode(pubkey).words))
+          : pubkey.toLowerCase();
+          
+        await setLoginFromHex(pkHex, 'nostr-login');
+        setErrors('');
+      } catch (err) {
+        setErrors(err.message);
+      }
+    });
+
+    nostrLoginEl.addEventListener('logout', () => {
+      loginState = null;
+      clearLogin();
+      updateLoginStatus();
+    });
+  }
+
+  // nostr-login integration
   async function tryAdoptNostrLogin(detail) {
     try {
       let input = undefined;
