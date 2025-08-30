@@ -268,18 +268,39 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       let input = undefined;
       if (detail && typeof detail === 'object') {
-        input = detail.pubkey || detail.pubkeyHex || detail.publicKey || detail.npub || detail.pk || null;
+        input = detail.pubkey || detail.publicKey; // 標準化された名前をチェック
       }
-      if (!input && nostrLoginEl && typeof nostrLoginEl.pubkey === 'string') input = nostrLoginEl.pubkey;
-      if (typeof input !== 'string' || input.length === 0) return;
+      if (!input && nostrLoginEl && typeof nostrLoginEl.pubkey === 'string') {
+        input = nostrLoginEl.pubkey;
+      }
+      if (typeof input !== 'string' || input.length === 0) {
+        return; // 何もすることがない
+      }
       let pkHex = null;
       // normalize
       input = input.trim();
-      if (input.startsWith('0x') || input.startsWith('0X')) input = input.slice(2);
+      if (input.startsWith('0x') || input.startsWith('0X')) {
+        input = input.slice(2); // 0x を取り除く
+      }
       // accept hex (case-insensitive)
-      if (/^[0-9a-fA-F]{64}$/.test(input)) pkHex = input.toLowerCase();
-      else if (input.startsWith('npub1')) pkHex = decodeAuthor(input);
-      if (pkHex) await setLoginFromHex(pkHex, 'nostr-login');
+      if (/^[0-9a-fA-F]{64}$/.test(input)) {
+        pkHex = input.toLowerCase();
+      } else if (input.startsWith('npub1')) {
+        try {
+          const { prefix, words } = bech32.decode(input);
+          if (prefix !== 'npub') throw new Error('npub の接頭辞が不正です');
+          const bytes = bech32.fromWords(words);
+          if (bytes.length !== 32) throw new Error('npub の長さが不正です');
+          pkHex = toHex(bytes);
+        } catch (err) {
+          throw new Error('npub のデコードに失敗しました: ' + err.message);
+        }
+      } else {
+        throw new Error('公開鍵は npub もしくは 64 桁 hex で入力してください');
+      }
+      if (pkHex) {
+        await setLoginFromHex(pkHex, 'nostr-login');
+      }
     } catch (e) {
       // swallow and show as non-blocking error
       setErrors(e.message || String(e));
