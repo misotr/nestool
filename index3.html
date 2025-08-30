@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nostr NIP-50 検索</title>
+    <meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: https:;
+  connect-src 'self' wss: https:;
+  base-uri 'none';
+  form-action 'self';
+  upgrade-insecure-requests" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>NIP-50 検索</h1>
+      <p class="desc">キーワード（NIP-50）、ユーザ複数、日時範囲で検索します。対応リレーのみヒットします。</p>
+    </header>
+
+    <main>
+      <form id="nip50-form">
+        <div class="field">
+          <label for="keyword">キーワード（必須）</label>
+          <input id="keyword" name="keyword" type="text" placeholder="例: nostr / テーマ / 単語" required />
+        </div>
+        <div class="field">
+          <label for="authors">ユーザ（任意・複数可／npub または 64 桁 hex。空白/改行/カンマ区切り）</label>
+          <textarea id="authors" name="authors" rows="2" placeholder="npub1... を複数行で"></textarea>
+        </div>
+        <div class="field small">
+          <label for="since">開始日時（任意）</label>
+          <input id="since" name="since" type="datetime-local" />
+        </div>
+        <div class="field small">
+          <label for="until">終了日時（任意）</label>
+          <input id="until" name="until" type="datetime-local" />
+        </div>
+        <div class="actions">
+          <button id="submit" type="submit">検索</button>
+          <span id="status" role="status" aria-live="polite"></span>
+        </div>
+        <div id="errors" class="errors" aria-live="polite"></div>
+      </form>
+
+      <section id="summary" class="summary"></section>
+      <section id="results" class="results"></section>
+    </main>
+
+    <footer>
+      <small>© 2025 — MIT License</small>
+    </footer>
+
+    <script src="bech32.js"></script>
+    <script src="index3.js"></script>
+  </body>
+  </html>
+
