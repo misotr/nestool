@@ -296,9 +296,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   }
 
-  // Always show explicit auth controls next to the widget
+  // Show explicit auth controls only if the nostr-login element is not available
   let updateAuthControls = null;
   (function setupAuthFallbackControls() {
+    const hasElement = (typeof customElements !== 'undefined') && customElements.get && customElements.get('nostr-login');
+    if (hasElement) return; // nostr-login (real or shim) handles UI
     const host = nostrLoginEl && nostrLoginEl.parentElement ? nostrLoginEl.parentElement : (loginStatus && loginStatus.parentElement ? loginStatus.parentElement : document.body);
     const wrap = create('div', { id: 'auth-fallback', style: 'display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;' });
     const loginBtnFB = create('button', { id: 'nip07-fallback-login', type: 'button' }, 'NIP-07 でログイン');
@@ -315,7 +317,7 @@ window.addEventListener('DOMContentLoaded', () => {
         await setLoginFromHex(pkHex, 'nip07-fallback');
       } catch (e) { setErrors(e.message || String(e)); }
     });
-    logoutBtn.addEventListener('click', () => { loginState = null; clearLogin(); updateLoginStatus(); updateAuthControls(); });
+    logoutBtn.addEventListener('click', () => { loginState = null; clearLogin(); updateLoginStatus(); if (typeof updateAuthControls === 'function') updateAuthControls(); });
 
     wrap.appendChild(loginBtnFB);
     wrap.appendChild(logoutBtn);
@@ -327,8 +329,8 @@ window.addEventListener('DOMContentLoaded', () => {
       loginBtnFB.style.display = loggedIn ? 'none' : '';
       logoutBtn.style.display = loggedIn ? '' : 'none';
     };
+    updateAuthControls();
   })();
-  if (typeof updateAuthControls === 'function') updateAuthControls();
 
   // Load previous values if available
   const saved = loadFormState();
