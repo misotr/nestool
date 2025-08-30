@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Nostr Event Search Viewer</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:; base-uri 'none'; form-action 'self'; upgrade-insecure-requests" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:; base-uri 'none'; form-action 'self'; upgrade-insecure-requests" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -66,8 +66,7 @@
 
     <!-- 旧ログイン UI は nostr-login に置換 -->
 
-    <!-- nostr-login from unpkg (module). If it fails, local shim defines the element. -->
-    <script type="module" src="https://unpkg.com/nostr-login"></script>
+    <!-- Local nostr-login shim (no external dependency) -->
     <script src="nostr-login-shim.js"></script>
 
     <script src="bech32.js"></script>
