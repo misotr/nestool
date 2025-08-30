@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nostr Login Demo</title>
+    <script src='https://www.unpkg.com/nostr-login@latest/dist/unpkg.js' 
+            data-theme="ocean" 
+            data-start-screen="welcome"
+            data-dark-mode="false"
+            data-methods="connect,extension,readOnly,local"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 400px;
+            transition: all 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        h1 {
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .status-section {
+            margin: 30px 0;
+        }
+
+        .login-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            margin: 10px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(245, 87, 108, 0.3);
+        }
+
+        .user-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .user-info h2 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .user-detail {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .user-detail strong {
+            color: #4a5568;
+        }
+
+        .pubkey {
+            word-break: break-all;
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: rgba(72, 187, 120, 0.1);
+            color: #2f855a;
+            border: 1px solid rgba(72, 187, 120, 0.3);
+        }
+
+        .status-info {
+            background: rgba(66, 153, 225, 0.1);
+            color: #2c5282;
+            border: 1px solid rgba(66, 153, 225, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Nostr Login Demo</h1>
+        
+        <div id="loginSection" class="status-section">
+            <p class="status-message status-info">
+                Nostrプロトコルを使用した分散認証システムのデモです。<br>
+                下のボタンをクリックしてログインしてください。
+            </p>
+            <button id="loginBtn" class="login-btn">
+                📱 Nostrでログイン
+            </button>
+        </div>
+
+        <div id="userSection" class="status-section hidden">
+            <div class="user-info">
+                <h2>👋 ログイン成功！</h2>
+                <div class="user-detail">
+                    <strong>ユーザー名:</strong>
+                    <div id="userName">読み込み中...</div>
+                </div>
+                <div class="user-detail">
+                    <strong>公開鍵:</strong>
+                    <div id="userPubkey" class="pubkey">読み込み中...</div>
+                </div>
+                <div class="user-detail">
+                    <strong>ログイン方法:</strong>
+                    <span id="loginMethod">-</span>
+                </div>
+            </div>
+            <button id="logoutBtn" class="logout-btn">
+                🚪 ログアウト
+            </button>
+        </div>
+
+        <div id="loadingSection" class="status-section hidden">
+            <div class="loading"></div>
+            <span>ユーザー情報を取得中...</span>
+        </div>
+    </div>
+
+    <script>
+        let isLoggedIn = false;
+        let userProfile = null;
+
+        // DOM要素の取得
+        const loginSection = document.getElementById('loginSection');
+        const userSection = document.getElementById('userSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userName = document.getElementById('userName');
+        const userPubkey = document.getElementById('userPubkey');
+        const loginMethod = document.getElementById('loginMethod');
+
+        // ログインボタンのクリックイベント
+        loginBtn.addEventListener('click', () => {
+            // Welcome ダイアログを表示
+            document.dispatchEvent(new CustomEvent('nlLaunch', { detail: 'welcome' }));
+        });
+
+        // ログアウトボタンのクリックイベント
+        logoutBtn.addEventListener('click', () => {
+            document.dispatchEvent(new Event("nlLogout"));
+        });
+
+        // 認証状態の変更を監視
+        document.addEventListener('nlAuth', async (e) => {
+            console.log('Auth event:', e.detail);
+            
+            if (e.detail.type === 'login' || e.detail.type === 'signup') {
+                isLoggedIn = true;
+                showLoading();
+                
+                try {
+                    // ユーザー情報を取得
+                    await getUserInfo();
+                    showUserSection();
+                } catch (error) {
+                    console.error('ユーザー情報の取得に失敗:', error);
+                    showLoginSection();
+                }
+            } else if (e.detail.type === 'logout') {
+                isLoggedIn = false;
+                userProfile = null;
+                showLoginSection();
+            }
+        });
+
+        // ユーザー情報を取得する関数
+        async function getUserInfo() {
+            if (!window.nostr) {
+                throw new Error('window.nostr is not available');
+            }
+
+            try {
+                // 公開鍵を取得
+                const pubkey = await window.nostr.getPublicKey();
+                userPubkey.textContent = pubkey;
+
+                // プロフィール情報を取得（簡易版）
+                let displayName = pubkey.substring(0, 8) + '...';
+                
+                // window.nostr.signEventが利用可能かチェック
+                let method = 'Unknown';
+                if (window.nostr.signEvent) {
+                    method = 'Extension/Connect';
+                } else {
+                    method = 'Read Only';
+                }
+                
+                // NIP-05形式の名前があるかチェック（実際のリレーから取得する場合の簡易実装）
+                try {
+                    // 実際の実装では、リレーからkind:0イベントを取得してプロフィール情報を取得
+                    // ここでは簡易的に表示
+                    displayName = `User_${pubkey.substring(0, 8)}`;
+                } catch (e) {
+                    console.log('プロフィール情報の取得をスキップ');
+                }
+
+                userName.textContent = displayName;
+                loginMethod.textContent = method;
+
+                userProfile = {
+                    pubkey: pubkey,
+                    name: displayName,
+                    method: method
+                };
+
+            } catch (error) {
+                console.error('Error getting user info:', error);
+                throw error;
+            }
+        }
+
+        // UI状態管理関数
+        function showLoginSection() {
+            loginSection.classList.remove('hidden');
+            userSection.classList.add('hidden');
+            loadingSection.classList.add('hidden');
+        }
+
+        function showUserSection() {
+            loginSection.classList.add('hidden');
+            userSection.classList.remove('hidden');
+            loadingSection.classList.add('hidden');
+        }
+
+        function showLoading() {
+            loginSection.classList.add('hidden');
+            userSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+        }
+
+        // ページ読み込み時の初期化
+        window.addEventListener('load', () => {
+            console.log('Nostr Login Demo loaded');
+            
+            // window.nostrが利用可能かチェック
+            if (window.nostr) {
+                console.log('window.nostr is available');
+            } else {
+                console.log('window.nostr is not yet available');
+            }
+        });
+
+        // デバッグ用：window.nostrの状態を定期的にチェック
+        setInterval(() => {
+            if (window.nostr && !isLoggedIn) {
+                console.log('window.nostr is now available');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
